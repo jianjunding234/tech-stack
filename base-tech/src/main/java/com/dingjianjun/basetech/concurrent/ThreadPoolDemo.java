@@ -5,12 +5,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.IntStream;
 
 /**
  * @author : Jianjun.Ding
- * @description: 线程池剖析
+ * @description: 线程池剖析 ThreadPoolExecutor、ForkJoinPool
  * @date 2020/4/21
  */
 @Slf4j
@@ -24,7 +24,8 @@ public class ThreadPoolDemo {
         });
     }
     public static void main(String[] args) {
-        testForJoinPool();
+//        testForJoinPool();
+        testScheduledExecutorService();
     }
 
     public static void testForJoinPool() {
@@ -115,7 +116,7 @@ public class ThreadPoolDemo {
 
 
 
-    private static class MyRejectedExecutionHandler implements RejectedExecutionHandler {
+    public static class MyRejectedExecutionHandler implements RejectedExecutionHandler {
         @Override
         public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
             // log 记录被拒绝任务的信息
@@ -219,6 +220,43 @@ public class ThreadPoolDemo {
             Long result = addTask1.join() + addTask2.join();
             return result;
         }
+    }
+
+    public static void testScheduledExecutorService() {
+        ScheduledExecutorService executorService = new ScheduledThreadPoolExecutor(2,
+                new MyThreadFactory("scheduled-demo"), new MyRejectedExecutionHandler());
+        long now = System.currentTimeMillis();
+//        executorService.schedule(() -> {
+//            long curTime = System.currentTimeMillis();
+//
+//            log.info("{} ms", curTime - now);
+//        }, 3, TimeUnit.SECONDS);
+
+//        ScheduledFuture<Long> future = executorService.schedule(() -> {
+//            long sum = IntStream.range(0, 50).parallel().sum();
+//            log.info("sum:{}", sum);
+//            return sum;
+//        }, 1, TimeUnit.SECONDS);
+//
+//        try {
+//            log.info("delay:{}, result:{}", future.getDelay(TimeUnit.SECONDS), future.get());
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        } catch (ExecutionException e) {
+//            e.printStackTrace();
+//        }
+
+//         executorService.scheduleAtFixedRate(() -> {
+//             long curTime = System.currentTimeMillis();
+//             log.info("{} ms", curTime - now);
+//         }, 5, 2, TimeUnit.SECONDS);
+
+        executorService.scheduleWithFixedDelay(() -> {
+            long curTime = System.currentTimeMillis();
+            log.info("{} ms", curTime - now);
+        }, 3, 2, TimeUnit.SECONDS);
+
+
     }
 
 
