@@ -28,7 +28,7 @@ public class ThreadPoolDemo {
         testScheduledExecutorService();
     }
 
-    public static void testForJoinPool() {
+    public static void useForJoinPool() {
         // 用于可以分解汇总的任务
         ForkJoinPool fjp = new ForkJoinPool();
         AddResultTask addTask = new AddResultTask(0, datas.length);
@@ -39,7 +39,7 @@ public class ThreadPoolDemo {
 
     }
 
-    public static void testThreadPoolExecutor() {
+    public static void useThreadPoolExecutor() {
         ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 4,
                 0L, TimeUnit.SECONDS,
                 new ArrayBlockingQueue<Runnable>(4),
@@ -57,7 +57,7 @@ public class ThreadPoolDemo {
         });
     }
 
-    public static void testWorkStealingPool() {
+    public static void useWorkStealingPool() {
        // log.info("ncpus:" + Runtime.getRuntime().availableProcessors());
         int len = datas.length;
         ExecutorService executorService = Executors.newWorkStealingPool();
