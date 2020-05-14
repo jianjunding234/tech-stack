@@ -14,11 +14,11 @@ import java.util.TreeMap;
  * @description: 一致性哈希路由实现
  * @date 2020/5/14
  */
-public class ConsistentHashRouter<T extends Node> {
+public class ConsistentHashRouter<K,V,T extends Node<K,V>> {
     /**
      * 代表key映射的哈希环
      */
-    private final SortedMap<Long, VirtualNode<T>> ring = new TreeMap<>();
+    private final SortedMap<Long, VirtualNode<K,V,T>> ring = new TreeMap<>();
 
     /**
      * hash函数接口
@@ -86,7 +86,7 @@ public class ConsistentHashRouter<T extends Node> {
 
         Iterator<Long> it = ring.keySet().iterator();
         while (it.hasNext()) {
-            VirtualNode<T> vNode = ring.get(it.next());
+            VirtualNode<K,V,T> vNode = ring.get(it.next());
             // 如果该虚拟节点是指定物理节点的副本，则从哈希环上移除
             if (vNode.isVirtualNodeOf(pNode)) {
                 it.remove();
@@ -105,10 +105,33 @@ public class ConsistentHashRouter<T extends Node> {
             return null;
         }
         // 获取哈希环上位置大于等于指定位置的所有虚拟节点
-        SortedMap<Long, VirtualNode<T>> tailMap = ring.tailMap(hashFunction.hash(key));
+        SortedMap<Long, VirtualNode<K,V,T>> tailMap = ring.tailMap(hashFunction.hash(key));
         // 获取哈希环上离指定位置最近的虚拟节点的位置
         Long ringKey = !tailMap.isEmpty() ? tailMap.firstKey() : ring.firstKey();
         return ring.get(ringKey).getPhysicalNode();
+    }
+
+    /**
+     * 设置缓存key-value键值对
+     * @param key
+     * @param value
+     * @return
+     */
+    public V set(K key, V value) {
+        T route = route(String.valueOf(key));
+        V oldVal = route.get(key);
+        route.set((K)key, value);
+        return oldVal;
+    }
+
+    /**
+     * 根据key获取缓存value
+     * @param key 缓存的key
+     * @return
+     */
+    public V get(Object key) {
+        T route = route(String.valueOf(key));
+        return route.get(key);
     }
 
     /**

@@ -7,7 +7,7 @@ import java.util.Objects;
  * @description: 虚拟节点，作为物理节点的副本
  * @date 2020/5/14
  */
-public class VirtualNode<T extends Node> implements Node {
+public class VirtualNode<K,V,T extends Node<K,V>> implements Node<K,V> {
     /**
      * 所属物理节点
      */
@@ -25,6 +25,16 @@ public class VirtualNode<T extends Node> implements Node {
     @Override
     public String getKey() {
         return physicalNode.getKey() + "-" + replicaIndex;
+    }
+
+    @Override
+    public V set(K key, V value) {
+        return physicalNode.set(key, value);
+    }
+
+    @Override
+    public V get(Object key) {
+        return physicalNode.get(key);
     }
 
     /**
