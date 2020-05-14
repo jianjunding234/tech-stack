@@ -31,11 +31,23 @@ public class ClassLoaderDemo {
         ClassLoader classLoader = new CustomClassLoader();
         try {
             Class<?> clazz = classLoader.loadClass("com.dingjianjun.basetech.jvm.Hello");
-            Class<?> clazz2 = classLoader.loadClass("com.dingjianjun.basetech.jvm.Hello");
-            System.out.println(clazz == clazz2);
             System.out.println(clazz.getClassLoader());
             System.out.println(clazz.getClassLoader().getParent());
-            System.out.println(ClassLoader.getSystemClassLoader());
+            try {
+                Object obj = clazz.newInstance();
+                System.out.println(obj.getClass());
+                if (obj instanceof com.dingjianjun.basetech.jvm.Hello) {
+                    System.out.println("obj instanceof com.dingjianjun.basetech.jvm.Hello?" + true);
+                } else {
+                    System.out.println("obj instanceof com.dingjianjun.basetech.jvm.Hello?" + false);
+                }
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            }
+
+//            System.out.println(ClassLoader.getSystemClassLoader());
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }

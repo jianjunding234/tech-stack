@@ -12,6 +12,7 @@
     <artifactId>tech-stack</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>tech-stack</name>
+    <packaging>pom</packaging>
     <description>Demo project for Spring Boot</description>
 
     <modules>
