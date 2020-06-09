@@ -8,9 +8,9 @@ import lombok.extern.slf4j.Slf4j;
  * @date 2020/4/21
  */
 @Slf4j
-public class AudoCreateTaskJobService implements JobService {
+public class AudoCreateTaskJobService implements JobService  {
     @Override
     public void execute() {
-        log.info("AudoCreateTaskJob executing >>>");
+            log.info("AudoCreateTaskJob executing >>>");
     }
 }

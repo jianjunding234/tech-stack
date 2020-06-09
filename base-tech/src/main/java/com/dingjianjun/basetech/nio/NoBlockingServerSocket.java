@@ -1,5 +1,9 @@
 package com.dingjianjun.basetech.nio;
 
+import com.google.common.base.Charsets;
+
+import java.io.FileInputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
@@ -7,6 +11,8 @@ import java.nio.channels.*;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author : Jianjun.Ding
@@ -14,69 +20,105 @@ import java.util.Iterator;
  * @date 2020/4/8
  */
 public class NoBlockingServerSocket {
+    private ServerSocketChannel ssc = null;
+    private Selector selector = null;
+    private int port = 8888;
 
-    public static void main(String[] args) {
-        ServerSocketChannel ssc = null;
+    public void initServer() {
         try {
-            //获取通道
+            // 获取通道
             ssc = ServerSocketChannel.open();
-            //切换成非阻塞模式
+            // 设置成非阻塞模式
             ssc.configureBlocking(false);
-            //绑定连接
-            ssc.bind(new InetSocketAddress(8888));
-            //获取选择器
-            Selector selector = Selector.open();
-            //通道注册到选择器上，指定接收 "监听通道"事件
+            // 绑定端口
+            ssc.bind(new InetSocketAddress(port));
+            // 获取选择器
+            selector = Selector.open();  // select poll epoll
+            // 通道注册到选择器上，指定"监听通道" 的事件为接受socket 连接
             ssc.register(selector, SelectionKey.OP_ACCEPT);
-            //轮询获取选择器已就绪事件，如果没有已就绪事件，则线程阻塞
-            while (selector.select() > 0) {
-                //获取选择器所有注册的选择键（已就绪的监听事件）
-                Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
-                while(iterator.hasNext()) {
-                    //获取已就绪的事件（不同的事件做不同的事情）
-                    SelectionKey selectionKey = iterator.next();
-                    //接收就绪（准备接受新的连接）
-                    if (selectionKey.isAcceptable()) {
-                        //接受新的连接，拿到客户端的连接
-                        SocketChannel socketChannel = ssc.accept();
-                        //切换成非阻塞模式
-                        socketChannel.configureBlocking(false);
-                        //客户端通道注册到选择器上，监听读就绪事件
-                        socketChannel.register(selector, SelectionKey.OP_READ);
-                    } else if (selectionKey.isReadable()) { //读就绪
-                        SocketChannel socketChannel = (SocketChannel)selectionKey.channel();
-                        long curTime = System.currentTimeMillis();
-                        FileChannel outChannel = FileChannel.open(
-                                Paths.get("/data/" + curTime + ".wav"),
-                                StandardOpenOption.WRITE, StandardOpenOption.CREATE);
-                        ByteBuffer buf = ByteBuffer.allocate(1024);
-                        while (socketChannel.read(buf) != -1) {
-                            buf.flip();
-                            outChannel.write(buf);
-                            buf.clear();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    public void start() {
+        initServer();
+        System.out.println("服务器已经启动......");
+        try {
+            while (true) {
+                Set<SelectionKey> keys = selector.keys();
+                System.out.println("keys size:" + keys.size());
+                // 等待通道变成就绪，设置等待超时时间
+                while (selector.select(500) > 0) {
+                    // 获取选择器所有注册的选择键（已就绪的通道）
+                    Set<SelectionKey> selectionKeys = selector.selectedKeys();
+                    Iterator<SelectionKey> it = selectionKeys.iterator();
+                    while (it.hasNext()) {
+                        SelectionKey key = it.next();
+                        //移除已处理的选择键
+                        it.remove();
+                        if (key.isAcceptable()) {
+                            acceptHandler(key);
+                        } else if (key.isReadable()) {
+                            readHandler(key);
                         }
-
-                        outChannel.close();
                     }
-
-                    //移除已处理的选择键
-                    iterator.remove();
                 }
 
+                TimeUnit.SECONDS.sleep(1);
             }
 
+        } catch (IOException | InterruptedException ex) {
+            ex.printStackTrace();
+        }
+    }
 
+    private void acceptHandler(SelectionKey key) {
+        ServerSocketChannel serverSocketChannel = (ServerSocketChannel)key.channel();
+        try {
+            // 接受新的socket连接，拿到客户端的连接
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            socketChannel.configureBlocking(false);
+            System.out.println("-------------------------------------------");
+            System.out.println("新客户端：" + socketChannel.getRemoteAddress());
+            System.out.println("-------------------------------------------");
+            ByteBuffer byteBuffer = ByteBuffer.allocateDirect(8192);
+            // 客户端通道注册到选择器上，监听读就绪事件, 缓冲区对象附在SelectionKey上
+            socketChannel.register(selector, SelectionKey.OP_READ, byteBuffer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void readHandler(SelectionKey key) {
+        SocketChannel channel = (SocketChannel) key.channel();
+        ByteBuffer buf = (ByteBuffer) key.attachment();
+        buf.clear();
+        try {
+            int len;
+            while (true) {
+                len = channel.read(buf);
+                if (len > 0) {
+                    buf.flip();
+                    while (buf.hasRemaining()) {
+                        channel.write(buf);
+                    }
+                    buf.clear();
+                } else if (len == 0) {
+                    break;
+                } else {
+                    channel.close();
+                    break;
+                }
+            }
         } catch (IOException ex) {
             ex.printStackTrace();
-        } finally {
-            if (ssc != null) {
-                try {
-                    ssc.close();
-                } catch (IOException ex) {
-                    ex.printStackTrace();
-                }
-            }
         }
+    }
+
+    public static void main(String[] args) {
+        new NoBlockingServerSocket().start();
     }
 
 

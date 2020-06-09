@@ -22,24 +22,24 @@ public class ConsistentHashTest {
         ConsistentHashRouter<String,String,RealNode<String,String>> router = new ConsistentHashRouter(pNodes, 10);
         String key1 = "192.168.0.1";
         String value1 = "xxx1";
-        router.set(key1, value1);
-        printRoutes(router, key1);
-        System.out.println("----------------------------------");
-
-        router.addNode(new RealNode("HZ3", "127.0.0.1", 2181), 10);
         String key2 = "192.168.0.2";
         String value2 = "xxx2";
         String key3 = "192.168.0.3";
         String value3 = "xxx3";
         String key4 = "192.168.0.4";
         String value4 = "xxx4";
-        printRoutes(router, new String[] {key1, key2, key3, key4});
+        router.set(key1, value1);
         router.set(key2, value2);
         router.set(key3, value3);
         router.set(key4, value4);
+        printRoutes(router, new String[] {key1, key2, key3, key4});
         System.out.println("----------------------------------");
 
-        router.removeNode(pNode3);
+        router.addNode(new RealNode("HZ3", "127.0.0.1", 2181), 10);
+        printRoutes(router, new String[] {key1, key2, key3, key4});
+        System.out.println("----------------------------------");
+
+        router.removeNode(pNode1);
         printRoutes(router, new String[] {key1, key2, key3, key4});
     }
 

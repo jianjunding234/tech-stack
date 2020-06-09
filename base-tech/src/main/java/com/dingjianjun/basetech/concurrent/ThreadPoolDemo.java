@@ -251,10 +251,30 @@ public class ThreadPoolDemo {
 //             log.info("{} ms", curTime - now);
 //         }, 5, 2, TimeUnit.SECONDS);
 
-        executorService.scheduleWithFixedDelay(() -> {
-            long curTime = System.currentTimeMillis();
-            log.info("{} ms", curTime - now);
-        }, 3, 2, TimeUnit.SECONDS);
+//        executorService.scheduleWithFixedDelay(() -> {
+//            long curTime = System.currentTimeMillis();
+//            log.info("fixed delay task >>> {} ms", curTime - now);
+//            for (int i = 0; i < 1000; i++) {}
+//        }, 3, 2, TimeUnit.SECONDS);
+//
+//        executorService.scheduleAtFixedRate(() -> {
+//            long curTime = System.currentTimeMillis();
+//            log.info("fixed rate task >>> {} ms", curTime - now);
+//            for (int i = 0; i < 1000; i++) {}
+//        }, 4, 2, TimeUnit.SECONDS);
+
+        ScheduledFuture<Integer> schedule = executorService.schedule(() -> IntStream.range(0, 100).sum(), 2, TimeUnit.SECONDS);
+        try {
+            Integer result = schedule.get(5, TimeUnit.SECONDS);
+            log.info("result:{}", result);
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
 
 
     }

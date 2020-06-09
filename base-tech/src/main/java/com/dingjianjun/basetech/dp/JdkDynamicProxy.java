@@ -13,28 +13,42 @@ import java.lang.reflect.Proxy;
  */
 @Slf4j
 public class JdkDynamicProxy implements InvocationHandler {
-    // 委托类对象
-    private Object realObject;
-
-    public JdkDynamicProxy(Object realObject) {
-        this.realObject = realObject;
-    }
+    // 需要代理的对象
+    private Object targetObject;
 
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String methodName = method.getName();
-        log.info("{} invoke {} before", proxy, methodName);
+        if ("execute".equals(methodName)) {
+            checkPermission();
+
+        }
         // 反射进行委托类对象的方法调用
-        Object ret = method.invoke(realObject, args);
-        log.info("{} invoke {} after", proxy, methodName);
+        Object ret = method.invoke(targetObject, args);
         return ret;
+    }
+
+    /**
+     *  使用JDK动态代理前提：委托类一定要实现接口
+     *  动态创建代理类，代理类继承Proxy类， 创建代理对象
+     * @param targetObject 需要代理的对象
+     * @return 代理对象
+     */
+    public Object createProxy(Object targetObject) {
+        this.targetObject = targetObject;
+        return Proxy.newProxyInstance(targetObject.getClass().getClassLoader(),
+                targetObject.getClass().getInterfaces(), this);
+    }
+
+    private boolean checkPermission() {
+        System.out.println("权限校验通过......");
+        return true;
     }
 
     public static void main(String[] args) {
         JobService jobService = new AudoCreateTaskJobService();
-        // 创建代理对象
-        JobService proxy = (JobService)Proxy.newProxyInstance(JobService.class.getClassLoader(),
-                AudoCreateTaskJobService.class.getInterfaces(), new JdkDynamicProxy(jobService));
+        JdkDynamicProxy jdkDynamicProxy = new JdkDynamicProxy();
+        JobService proxy = (JobService) jdkDynamicProxy.createProxy(jobService);
         proxy.execute();
     }
 }

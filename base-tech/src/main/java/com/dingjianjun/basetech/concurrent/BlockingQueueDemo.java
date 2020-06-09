@@ -8,7 +8,11 @@ import java.util.concurrent.*;
  * @date 2020/4/22
  */
 public class BlockingQueueDemo {
+
     public static void main(String[] args) {
+        ConcurrentLinkedQueue<String> concurrentQueue = new ConcurrentLinkedQueue<>();
+        concurrentQueue.size();
+
         // ArrayBlockingQueue 底层基于数组
 
         // LinkedBlockingQueue 底层基于单链表 最大容量 Integer.MAX_VALUE

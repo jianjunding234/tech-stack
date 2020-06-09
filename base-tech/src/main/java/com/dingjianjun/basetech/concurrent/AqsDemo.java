@@ -1,9 +1,9 @@
 package com.dingjianjun.basetech.concurrent;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.concurrent.*;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.LockSupport;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.*;
 import java.util.stream.IntStream;
 
 /**
@@ -11,9 +11,12 @@ import java.util.stream.IntStream;
  * @description: AQS剖析（volatile int state + 自旋锁实现的FIFO线程等待队列）
  * @date 2020/4/9
  */
+@Slf4j
 public class AqsDemo {
     public static void main(String[] args) {
-        testLock();
+        //testLock();
+       // testReadWriteLock();
+        testStampedLock();
 
 
 
@@ -278,7 +281,176 @@ public class AqsDemo {
 
     }
 
+    public static void testReadWriteLock() {
+        /**
+         * 读写锁适合
+         */
+        ReadWriteLock rwLock = new ReentrantReadWriteLock();
+        Lock rLock = rwLock.readLock();
+        Lock wLock = rwLock.writeLock();
+        boolean tryRead = rLock.tryLock();
+        boolean tryWrite = wLock.tryLock();
+        log.info("tryRead:{}, tryWrite:{}", tryRead, tryWrite);
 
+        ReadWriteLock rwLock2 = new ReentrantReadWriteLock();
+        Lock rLock2 = rwLock2.readLock();
+        Lock wLock2 = rwLock2.writeLock();
+        boolean tryWrite2 = wLock2.tryLock();
+        boolean tryRead2 = rLock2.tryLock();
+
+        log.info("tryRead:{}, tryWrite:{}", tryRead2, tryWrite2);
+
+
+
+//        new Thread(() -> {
+//            Lock lock = rwLock.readLock();
+//            lock.lock();
+//            try {
+//                log.info("success acquire readlock...");
+//                IntStream.range(0, 100).forEach(item -> {
+//                    try {
+//                        TimeUnit.MILLISECONDS.sleep(100);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                });
+//            } finally {
+//                lock.unlock();
+//                log.info("release readlock...");
+//            }
+//        }, "T1").start();
+//
+//        new Thread(() -> {
+//            Lock lock = rwLock.writeLock();
+//            lock.lock();
+//            try {
+//                log.info("success acquire writeLock...");
+//                IntStream.range(0, 100).forEach(item -> {
+//                    try {
+//                        TimeUnit.MILLISECONDS.sleep(100);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                });
+//            } finally {
+//                lock.unlock();
+//                log.info("release writeLock...");
+//            }
+//        }, "T2").start();
+
+
+    }
+
+    public static void testStampedLock() {
+        Point p = new Point(0.0, 0.0);
+//        p.moveIfAtOrigin(2.0, 3.0);
+//        p.move(5.0, 6.0);
+//        double distance = p.distanceFromOrigin();
+//        log.info("distance:{}", distance);
+        new Thread(() -> {
+            long stamp = p.sl.readLock();
+            try {
+                log.info("T1 stamp:{}", stamp);
+                try {
+                    TimeUnit.SECONDS.sleep(2L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                long ws = p.sl.tryConvertToWriteLock(stamp);
+                try {
+                    log.info("T1 ws:{}", ws);
+                } finally {
+                    p.sl.unlock(ws);
+                }
+
+            } finally {
+                p.sl.unlockRead(stamp);
+            }
+
+
+        }, "T1").start();
+
+        new Thread(() -> {
+            long stamp = p.sl.readLock();
+            try {
+                log.info("T2 stamp:{}", stamp);
+                try {
+                    TimeUnit.SECONDS.sleep(5L);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+
+            } finally {
+                p.sl.unlockRead(stamp);
+            }
+
+        }, "T2").start();
+
+
+
+    }
+
+
+    static class Point {
+       private double x, y;
+       private final StampedLock sl = new StampedLock();
+
+        Point() {}
+        Point(double x, double y) {this.x = x; this.y = y;}
+
+       void move(double deltaX, double deltaY) {
+           // an exclusively locked method
+           long stamp = sl.writeLock();
+           try {
+               x += deltaX;
+               y += deltaY;
+           } finally {
+               sl.unlockWrite(stamp);
+           }
+       }
+
+       double distanceFromOrigin() {
+           // A read-only method
+           long stamp = sl.tryOptimisticRead();
+           double curX = x, curY = y;
+           // 票据无效， 用悲观读模式
+           if (!sl.validate(stamp)) {
+               stamp = sl.readLock();
+               try {
+                   curX = x;
+                   curY = y;
+               } finally {
+                   sl.unlockRead(stamp);
+               }
+           }
+
+           return Math.sqrt(curX * curX + curY * curY);
+       }
+
+       void moveIfAtOrigin(double px, double py) {
+           // upgrade
+           long stamp = sl.readLock();
+           try {
+               while (x == 0.0 && y == 0.0) {
+                   long ws = sl.tryConvertToWriteLock(stamp);
+                   if (ws != 0) {
+                       stamp = ws;
+                       x = px;
+                       y = py;
+                       break;
+                   } else {
+                       sl.unlockRead(stamp);
+                       stamp = sl.writeLock();
+                   }
+               }
+           } finally {
+               sl.unlock(stamp);
+           }
+       }
+
+    }
 
 
 }

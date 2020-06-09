@@ -5,7 +5,7 @@ package com.dingjianjun.basetech.algorithm;
  * @description: 单链表
  * @date 2020/4/25
  */
-public class Node<T> {
+public class Node {
     int value;
     Node next;
 
