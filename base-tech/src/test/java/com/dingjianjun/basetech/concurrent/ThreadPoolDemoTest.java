@@ -8,13 +8,13 @@ import org.openjdk.jmh.annotations.*;
  * @date 2020/4/30
  */
 public class ThreadPoolDemoTest {
-    @Benchmark
-    @Warmup(iterations = 1, time = 3)
-    @Fork(5)
-    @BenchmarkMode(Mode.Throughput)
-    @Measurement(iterations = 1, time = 3)
-    public void testUseForJoinPool() {
-        ThreadPoolDemo.useForJoinPool();
-
-    }
+//    @Benchmark
+//    @Warmup(iterations = 1, time = 3)
+//    @Fork(5)
+//    @BenchmarkMode(Mode.Throughput)
+//    @Measurement(iterations = 1, time = 3)
+//    public void testUseForJoinPool() {
+//        ThreadPoolDemo.useForJoinPool();
+//
+//    }
 }

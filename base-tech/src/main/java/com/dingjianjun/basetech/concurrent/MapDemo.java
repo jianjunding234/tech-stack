@@ -49,6 +49,12 @@ public class MapDemo {
         for (Map.Entry<String, Long> e : map4.entrySet()) {
             System.out.println("k:" + e.getKey() + " v:" + e.getValue());
         }
+
+        /**
+         * java8 ConcurrentHashMap#computeIfAbsent 线程死锁bug
+         */
+        Long retVal = map4.computeIfAbsent("AaAa", key ->  map4.computeIfAbsent("BBBB", key2 -> 42L));
+        System.out.println("retVal2:" + retVal);
         System.out.println("------------------------------------");
         // ConcurrentSkipListMap 跳表
         ConcurrentSkipListMap<String, Long> map5 = new ConcurrentSkipListMap();
@@ -59,6 +65,5 @@ public class MapDemo {
         for (Map.Entry<String, Long> e : map5.entrySet()) {
             System.out.println("k:" + e.getKey() + " v:" + e.getValue());
         }
-
     }
 }

@@ -4,7 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.IntStream;
 
 /**
  * @author : Jianjun.Ding
@@ -14,6 +18,55 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class CompletableFutureDemo {
     public static void main(String[] args) {
+        test();
+
+    }
+
+
+    public static void test() {
+        CompletableFuture<Long> cf = invokeRpc().thenApply(Function.identity());
+        CompletableFuture<Long> cf2 = cf.whenComplete((result, t) -> {
+            if (null == t) {
+                System.out.println(result);
+            } else {
+                t.printStackTrace();
+                System.err.println("errorMsg: " + t.getMessage());
+            }
+        });
+
+        CompletableFuture<Long> cf3 = cf2.handle((result, t) -> {
+            Long ret = 0L;
+            if (null == t) {
+                System.out.println(result);
+                ret = result * 10;
+            } else {
+                t.printStackTrace();
+                System.err.println("errorMsg: " + t.getMessage());
+            }
+            return ret;
+        });
+
+        try {
+            Long r = cf3.get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+    public static CompletableFuture<Long> invokeRpc() {
+        return CompletableFuture.supplyAsync(() ->
+                (long)IntStream.range(0, 10000).sum()
+        );
+    }
+
+
+    public static void test2() {
         // 异步计算
         CompletableFuture<Double> future = CompletableFuture.supplyAsync(() -> {
             try {
@@ -70,5 +123,6 @@ public class CompletableFutureDemo {
         } catch (IOException e) {
             e.printStackTrace();
         }
+
     }
 }

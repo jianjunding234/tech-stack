@@ -11,6 +11,45 @@ import java.util.stream.IntStream;
 public class SortDemo {
 
     /**
+     * 输入整数数组 arr ，找出其中最小的 k 个数。
+     * 例如，输入4、5、1、6、2、7、3、8这8个数字，则最小的4个数字是1、2、3、4。
+     * 解决思路：初始建立前 K个元素的大根堆，对于后续每个元素首先和堆顶元素比较，如果大于或等于堆顶元素，继续读取数组下一个元素；
+     * 如果小于堆顶元素，用该元素替换堆顶元素，然后向下调整成大根堆。
+     * @param arr
+     * @param k
+     * @return
+     */
+    public static int[] getLeastNumbers(int[] arr, int k) {
+        if (k <= 0) {
+            return new int[0];
+        }
+        if (arr == null || arr.length <= k) {
+            return arr;
+        }
+
+        int[] result = new int[k];
+        for (int i = 0; i < k; i++) {
+            result[i] = arr[i];
+        }
+        // 初始建立前 K个元素的大根堆
+        for (int i = result.length - 1; i >= 0; i--) {
+            heapify(result, i, result.length);
+        }
+
+        int idx = k;
+        while (idx < arr.length) {
+            if (arr[idx] < result[0]) {
+                result[0] = arr[idx];
+                // 重新向下调整成大根堆
+                heapify(result,0, result.length);
+            }
+            idx++;
+        }
+
+        return result;
+    }
+
+    /**
      * 数组进行排序，升序使用大根堆，逆序使用小根堆
      * 堆排序：时间复杂度O(N*logN)，额外空间复杂度O(1)，非稳定排序
      * @param arr
@@ -510,30 +549,37 @@ public class SortDemo {
 
 
     public static void main(String[] args) {
-        int maxTimes = 1000;
-        int maxSize = 100;
-        int maxValue = 100;
-        boolean success = true;
-        for (int i = 0; i < maxTimes; i++) {
-            int[] arr1 = generateRandomArray(maxSize, maxValue);
-            int[] arr2 = copyArray(arr1);
-            heapSort(arr1);
-            comparator(arr2);
-            if (!isEqual(arr1, arr2)) {
-                printArray(arr1);
-                printArray(arr2);
-                success = false;
-                break;
-            }
-        }
+//        int maxTimes = 1000;
+//        int maxSize = 100;
+//        int maxValue = 100;
+//        boolean success = true;
+//        for (int i = 0; i < maxTimes; i++) {
+//            int[] arr1 = generateRandomArray(maxSize, maxValue);
+//            int[] arr2 = copyArray(arr1);
+//            heapSort(arr1);
+//            comparator(arr2);
+//            if (!isEqual(arr1, arr2)) {
+//                printArray(arr1);
+//                printArray(arr2);
+//                success = false;
+//                break;
+//            }
+//        }
+//
+//        System.out.println(success ? "Nice!!!" : "Fuck~~~");
+//
+//        int[] arr = generateRandomArray(maxSize, maxValue);
+//        printArray(arr);
+//        heapSort(arr);
+//        printArray(arr);
 
-        System.out.println(success ? "Nice!!!" : "Fuck~~~");
+        int[] arr = {0,0,0,2,0,5};
+        int[] result = getLeastNumbers(arr, 0);
+        System.out.println(result);
 
-        int[] arr = generateRandomArray(maxSize, maxValue);
-        printArray(arr);
-        heapSort(arr);
-        printArray(arr);
 
     }
+
+
 
 }

@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -28,7 +29,6 @@ public class NettyClient {
         Bootstrap bootstrap = new Bootstrap();
         try {
             bootstrap.group(work).channel(NioSocketChannel.class)
-                    .remoteAddress("127.0.0.1", 8888)
                     .option(ChannelOption.TCP_NODELAY, true)
                     .handler(new ChannelInitializer<SocketChannel>() {
                         @Override
@@ -38,7 +38,7 @@ public class NettyClient {
                             pipeline.addLast(new ClientHandler());
                         }
                     });
-            ChannelFuture channelFuture = bootstrap.connect().sync();
+            ChannelFuture channelFuture = bootstrap.connect("127.0.0.1", 8888).sync();
             channelFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -57,6 +57,15 @@ public class NettyClient {
 //
 //                        ByteBuf byteBuf = Unpooled.copiedBuffer("token_123".getBytes(Charsets.UTF_8));
 //                        future.channel().writeAndFlush(byteBuf).sync();
+
+
+//                        PooledByteBufAllocator allocator = new PooledByteBufAllocator();
+//                        ByteBuf buf = allocator.heapBuffer(1024);
+//                        buf.writeBytes("token_123".getBytes(Charsets.UTF_8));
+//                        future.channel().writeAndFlush(buf).sync();
+
+
+
                     } else {
                         future.channel().close();
                     }
@@ -107,7 +116,44 @@ public class NettyClient {
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             log.info("ClientHandler channelActive");
+            // 设置发送消息的高水位
+//            ctx.channel().config().setWriteBufferHighWaterMark(1024*1024);
+//            // 设置发送消息的低水位
+//            ctx.channel().config().setWriteBufferLowWaterMark(10*1024);
+//            Runnable loadRunner = new Runnable() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        TimeUnit.SECONDS.sleep(30);
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//
+//                    ByteBuf buf = null;
+//                    while (true) {
+//                        if (ctx.channel().isWritable()) {
+//                            buf = Unpooled.wrappedBuffer("token_123".getBytes(Charsets.UTF_8));
+//                            ctx.writeAndFlush(buf);
+//                        } else {
+//                            log.warn("The write queue is busy: {}", ctx.channel().unsafe().outboundBuffer().nioBufferSize());
+//                        }
+//
+//
+//                    }
+//                }
+//            };
+
+          //  new Thread(loadRunner, "loadRunner-thread").start();
+
             ctx.fireChannelActive();
+
+            ByteBuf buf = null;
+            if (ctx.channel().isWritable()) {
+                buf = Unpooled.wrappedBuffer("token_123".getBytes(Charsets.UTF_8));
+                ctx.writeAndFlush(buf);
+            } else {
+                log.warn("The write queue is busy: {}", ctx.channel().unsafe().outboundBuffer().nioBufferSize());
+            }
         }
 
         @Override

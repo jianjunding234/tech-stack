@@ -46,6 +46,7 @@ public class JdkDynamicProxy implements InvocationHandler {
     }
 
     public static void main(String[] args) {
+        System.getProperties().put("sun.misc.ProxyGenerator.saveGeneratedFiles", "true");
         JobService jobService = new AudoCreateTaskJobService();
         JdkDynamicProxy jdkDynamicProxy = new JdkDynamicProxy();
         JobService proxy = (JobService) jdkDynamicProxy.createProxy(jobService);

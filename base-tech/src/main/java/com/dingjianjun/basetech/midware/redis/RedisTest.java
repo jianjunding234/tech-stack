@@ -1,22 +1,17 @@
 package com.dingjianjun.basetech.midware.redis;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Charsets;
+import com.google.common.base.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.connection.Message;
-import org.springframework.data.redis.connection.MessageListener;
-import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.hash.Jackson2HashMapper;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.Resource;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.Collections;
 
 /**
  * @author : Jianjun.Ding
@@ -25,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Component
 @Slf4j
-public class RedisTest {
+public class RedisTest implements InitializingBean {
     @Resource
     @Qualifier("myRedisTemplate")
     private StringRedisTemplate template;
@@ -79,24 +74,44 @@ public class RedisTest {
 //        log.info("{}", set2);
 
         // 发布
-        RedisConnection connection = template.getConnectionFactory().getConnection();
-        //订阅
-        connection.subscribe(new MessageListener() {
-            @Override
-            public void onMessage(Message message, byte[] pattern) {
-                log.info("{}", new String(message.getBody()));
+//        RedisConnection connection = template.getConnectionFactory().getConnection();
+//        //订阅
+//        connection.subscribe(new MessageListener() {
+//            @Override
+//            public void onMessage(Message message, byte[] pattern) {
+//                log.info("{}", new String(message.getBody()));
+//
+//            }
+//        }, "life".getBytes(Charsets.UTF_8));
+//
+//        while (true) {
+//            // 发布
+//            template.convertAndSend("life", "from xx: hello");
+//            try {
+//                TimeUnit.SECONDS.sleep(3L);
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        }
+    }
 
-            }
-        }, "life".getBytes(Charsets.UTF_8));
-
-        while (true) {
-            // 发布
-            template.convertAndSend("life", "from xx: hello");
-            try {
-                TimeUnit.SECONDS.sleep(3L);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
+    public void testlua() {
+        org.springframework.core.io.Resource resource = new ClassPathResource("limit.lua");
+        RedisScript<Long> redisScript = RedisScript.of(resource, Long.class);
+        String limit = "3"; // 时间窗限流：限制每秒请求数最大为3个
+        for (int i = 0; i < 10; i++) {
+            String key = "time:window:" + System.currentTimeMillis() / 1000; // 当前秒
+            Long retVal = template.execute(redisScript, Collections.singletonList(key), limit);
+            if (Objects.equal(retVal, 1L)) {
+                System.out.println("acquire success...");
+            } else {
+                System.err.println("acquire failure，已超过限流大小，拒绝该请求");
             }
         }
+    }
+
+    @Override
+    public void afterPropertiesSet() throws Exception {
+        testlua();
     }
 }

@@ -1,15 +1,12 @@
 package com.dingjianjun.basetech.nio;
 
-import com.google.common.base.Charsets;
-
-import java.io.FileInputStream;
-import java.io.FilterInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.*;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -47,10 +44,8 @@ public class NoBlockingServerSocket {
         System.out.println("服务器已经启动......");
         try {
             while (true) {
-                Set<SelectionKey> keys = selector.keys();
-                System.out.println("keys size:" + keys.size());
                 // 等待通道变成就绪，设置等待超时时间
-                while (selector.select(500) > 0) {
+                while (selector.select() > 0) {
                     // 获取选择器所有注册的选择键（已就绪的通道）
                     Set<SelectionKey> selectionKeys = selector.selectedKeys();
                     Iterator<SelectionKey> it = selectionKeys.iterator();
@@ -65,11 +60,9 @@ public class NoBlockingServerSocket {
                         }
                     }
                 }
-
-                TimeUnit.SECONDS.sleep(1);
             }
 
-        } catch (IOException | InterruptedException ex) {
+        } catch (IOException ex) {
             ex.printStackTrace();
         }
     }
@@ -120,6 +113,4 @@ public class NoBlockingServerSocket {
     public static void main(String[] args) {
         new NoBlockingServerSocket().start();
     }
-
-
 }

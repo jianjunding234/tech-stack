@@ -8,11 +8,10 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.timeout.IdleState;
-import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.handler.timeout.IdleStateHandler;
-
-import java.util.concurrent.TimeUnit;
+import io.netty.handler.traffic.ChannelTrafficShapingHandler;
+import io.netty.util.ReferenceCountUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 
 /**
@@ -20,36 +19,50 @@ import java.util.concurrent.TimeUnit;
  * @description: Server使用Netty
  * @date 2020/5/26
  */
+@Slf4j
 public class NettyServer {
+    static BizThreadGroup bizThreads = new BizThreadGroup(4);
     public static void main(String[] args) {
-        EventLoopGroup boss = new NioEventLoopGroup(2);
-        EventLoopGroup work = new NioEventLoopGroup(3);
+        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup workerGroup = new NioEventLoopGroup(2);
         ServerBootstrap serverBootstrap = new ServerBootstrap();
+        FlowControlChannelHandler flowCtlHandler = new FlowControlChannelHandler(bizThreads);
       //  MyInBoundHandler myInBoundHandler = new MyInBoundHandler();
         try {
-            serverBootstrap.group(boss, work)
+            serverBootstrap.group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
+                    .option(ChannelOption.SO_BACKLOG, 1024)
                     .childHandler(new ChannelInitializer<NioSocketChannel>() {
                         @Override
                         protected void initChannel(NioSocketChannel nioSocketChannel) throws Exception {
                             ChannelPipeline pipeline = nioSocketChannel.pipeline();
-                            pipeline.addLast(new IdleStateHandler(60, 0, 0, TimeUnit.SECONDS))
-                                    .addLast(new MyInBoundHandler());
+                            // 流量控制保护
+                            pipeline.addLast("FlowControlChannelHandler", flowCtlHandler);
+//                            pipeline.addLast(new IdleStateHandler(60, 0, 0, TimeUnit.SECONDS))
+                            // 单个链路的流量整形
+                            pipeline.addLast(new ChannelTrafficShapingHandler(1024*1024, 1024*1024, 1000));
+                          //  pipeline.addLast(new StringDecoder());
+                            pipeline.addLast(new MyInBoundHandler());
                         }
                     })
-                    .option(ChannelOption.SO_BACKLOG, 1024)
-                    .childOption(ChannelOption.SO_KEEPALIVE, true)
-                    .bind(8888)
-                    .sync() // 阻塞当前线程等待服务启动
-                    .channel()
-                    .closeFuture()
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+            ChannelFuture f = serverBootstrap.bind(8888).sync(); // 阻塞当前线程等待服务启动
+            f.channel().closeFuture().addListener(new ChannelFutureListener() {
+                        @Override
+                        public void operationComplete(ChannelFuture future) throws Exception {
+                            bossGroup.shutdownGracefully();
+                            workerGroup.shutdownGracefully();
+                            log.info("{} 链路关闭", f.channel().toString());
+
+                        }
+                    })
                     .sync(); // 阻塞当前线程等待服务停止
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             // 关闭EventLoopGroup, 释放所有资源
-            boss.shutdownGracefully();
-            work.shutdownGracefully();
+//            bossGroup.shutdownGracefully();
+//            workerGroup.shutdownGracefully();
         }
 
 
@@ -57,6 +70,7 @@ public class NettyServer {
 
    // @ChannelHandler.Sharable
     static class MyInBoundHandler extends ChannelInboundHandlerAdapter {
+        private volatile boolean authPassed = false;
         private static final ByteBuf HEARTBEAT_PING =
                 Unpooled.unreleasableBuffer(Unpooled.copiedBuffer("ping", Charsets.UTF_8));
         private static final ByteBuf HEARTBEAT_PONG =
@@ -69,20 +83,38 @@ public class NettyServer {
 
         @Override
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+
+            String channelId = ctx.channel().id().asLongText();
             System.out.println("开始读 channelRead");
             if (msg instanceof ByteBuf) {
                 ByteBuf buf = (ByteBuf) msg;
-                int size = buf.writerIndex();
-                byte[] data = new byte[size];
+//                int size = buf.writerIndex();
+                byte[] data = new byte[buf.readableBytes()];
                 buf.getBytes(0, data);
                 String str = new String(data);
-                String[] split = str.split("\n");
-                for (String item : split) {
-                    System.out.print("收到消息：" + item + " ");
+                ReferenceCountUtil.release(msg);
+                if (!authPassed) {
+                    // 鉴权
+                    if (!StringUtils.isBlank(str) && "token_123".equals(str)) {
+                        authPassed = true;
+                    } else {
+                        authPassed = false;
+                        ctx.channel().close();
+                    }
+                    return;
                 }
 
+                // 业务逻辑封装成task，提交给业务线程池
+                Runnable task = () -> {
+                    System.out.println("channelId:" + channelId + " read data:" + str);
+                    System.out.println("start processing business...");
+
+                };
+                bizThreads.execute(channelId, task);
               // ctx.write(HEARTBEAT_PONG);
             }
+
+           // ctx.write(HEARTBEAT_PONG);
 
         }
 
@@ -91,7 +123,7 @@ public class NettyServer {
             System.out.println("channelReadComplete channelId:" + ctx.channel().id());
 //            super.channelReadComplete(ctx);
             ctx.flush();
-           // ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+        //    ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
         }
 
         @Override
@@ -102,13 +134,18 @@ public class NettyServer {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
-            System.out.println("客户端建立连接后--激活通道  channelId:" + ctx.channel().id());
+            String channelId = ctx.channel().id().asLongText();
+            System.out.println("客户端建立连接后--激活通道  channelId:" + channelId);
+
+            bizThreads.register(channelId);
             ctx.fireChannelActive();
         }
 
         @Override
         public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-            System.out.println("客户端断开连接--关闭通道  channelInactive");
+            String channelId = ctx.channel().id().asLongText();
+            System.out.println("客户端断开连接--关闭通道  channelId:" + channelId);
+            bizThreads.unregister(channelId);
             ctx.fireChannelInactive();
         }
 
@@ -127,18 +164,18 @@ public class NettyServer {
         */
        @Override
        public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-           if (evt instanceof IdleStateEvent) {
-               System.out.println("触发IdleStateEvent事件，状态：" + ((IdleStateEvent) evt).state());
-               if (((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
-                   System.out.println("发送消息：ping");
-                   ctx.writeAndFlush(HEARTBEAT_PING.duplicate())
-                           .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
-               } else if (((IdleStateEvent) evt).state() == IdleState.WRITER_IDLE) {
-
-               }
-           } else {
-               super.userEventTriggered(ctx, evt);
-           }
+//           if (evt instanceof IdleStateEvent) {
+//               System.out.println("触发IdleStateEvent事件，状态：" + ((IdleStateEvent) evt).state());
+//               if (((IdleStateEvent) evt).state() == IdleState.READER_IDLE) {
+//                   System.out.println("发送消息：ping");
+//                   ctx.writeAndFlush(HEARTBEAT_PING.duplicate())
+//                           .addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+//               } else if (((IdleStateEvent) evt).state() == IdleState.WRITER_IDLE) {
+//
+//               }
+//           } else {
+//               super.userEventTriggered(ctx, evt);
+//           }
        }
    }
 

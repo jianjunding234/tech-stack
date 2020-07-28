@@ -13,6 +13,7 @@ public class SpiDemo {
         ServiceLoader<Search> load = ServiceLoader.load(Search.class);
         Iterator<Search> it = load.iterator();
         while (it.hasNext()) {
+            // 反射：实例化接口实现类
             Search search = it.next();
             search.search();
         }

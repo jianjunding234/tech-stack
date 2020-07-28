@@ -1,6 +1,7 @@
 package com.dingjianjun.basetech.dp;
 
 
+import net.sf.cglib.core.DebuggingClassWriter;
 import net.sf.cglib.proxy.Enhancer;
 import net.sf.cglib.proxy.MethodInterceptor;
 import net.sf.cglib.proxy.MethodProxy;
@@ -49,6 +50,8 @@ public class CglibProxy implements MethodInterceptor {
     }
 
     public static void main(String[] args) {
+        //动态代理创建的class文件存储到本地
+        System.setProperty(DebuggingClassWriter.DEBUG_LOCATION_PROPERTY,"d:\\code");
         AudoCreateTaskJobService jobService = new AudoCreateTaskJobService();
         CglibProxy cglibProxy = new CglibProxy();
         AudoCreateTaskJobService proxy = (AudoCreateTaskJobService)cglibProxy.createProxy(jobService);
